@@ -26,25 +26,18 @@ public class MainActivity extends Activity {
     private Button btnStart;
     private TextView txtStatus;
 
-    private String heart_string;
     private String gyroscope_string;
+    private String skinTemp_string;
+    private String heart_string;
+    private String rrInterval_string;
+    private String contact_string;
 
     private BandAccelerometerEventListener mAccelerometerEventListener = new BandAccelerometerEventListener() {
         @Override
         public void onBandAccelerometerChanged(final BandAccelerometerEvent event) {
             if (event != null) {
-                appendToUI(String.format("AX = %.3f\nAY = %.3f\nAZ = %.3f\n", event.getAccelerationX(),
-                        event.getAccelerationY(), event.getAccelerationZ()) + gyroscope_string + heart_string);
-            }
-        }
-    };
-
-    private BandHeartRateEventListener mHeartRateEventListener = new BandHeartRateEventListener() {
-        @Override
-        public void onBandHeartRateChanged(final BandHeartRateEvent event) {
-            if (event != null) {
-                heart_string = String.format("Heart Rate = %d beats per minute\n"
-                        + "Quality = %s\n", event.getHeartRate(), event.getQuality());
+                appendToUI(String.format("AX = %.3f\nAY = %.3f\nAZ = %.3f\n", event.getAccelerationX()*10,
+                        event.getAccelerationY()*10, event.getAccelerationZ()*10) + gyroscope_string + skinTemp_string + heart_string + rrInterval_string + contact_string);
             }
         }
     };
@@ -57,7 +50,43 @@ public class MainActivity extends Activity {
                         event.getAngularVelocityY(), event.getAngularVelocityZ());
             }
         }
+    };
 
+    private BandSkinTemperatureEventListener mSkinTemperatureEventListener = new BandSkinTemperatureEventListener() {
+        @Override
+        public void onBandSkinTemperatureChanged(final BandSkinTemperatureEvent event) {
+            if (event != null) {
+                skinTemp_string = String.format("SkinTemperature = %.2f degrees Celsius\n", event.getTemperature());
+            }
+        }
+    };
+
+    private BandHeartRateEventListener mHeartRateEventListener = new BandHeartRateEventListener() {
+        @Override
+        public void onBandHeartRateChanged(final BandHeartRateEvent event) {
+            if (event != null) {
+                heart_string = String.format("HeartRate = %d beats per minute\n"
+                        + "Quality = %s\n", event.getHeartRate(), event.getQuality());
+            }
+        }
+    };
+
+    private BandRRIntervalEventListener mRRIntervalEventListener = new BandRRIntervalEventListener() {
+        @Override
+        public void onBandRRIntervalChanged(final BandRRIntervalEvent event) {
+            if (event != null) {
+                rrInterval_string = String.format("RRinterval = %.3f s\n", event.getInterval());
+            }
+        }
+    };
+
+    private BandContactEventListener mContactEventListener = new BandContactEventListener() {
+        @Override
+        public void onBandContactChanged(final BandContactEvent event) {
+            if (event != null) {
+                contact_string = String.format("Contact = %s\n", event.getContactState());
+            }
+        }
     };
 
     @Override
@@ -95,7 +124,11 @@ public class MainActivity extends Activity {
         if (client != null) {
             try {
                 client.getSensorManager().unregisterAccelerometerEventListener(mAccelerometerEventListener);
+                client.getSensorManager().unregisterGyroscopeEventListener(mGyroscopeEventListener);
+                client.getSensorManager().unregisterSkinTemperatureEventListener(mSkinTemperatureEventListener);
                 client.getSensorManager().unregisterHeartRateEventListener(mHeartRateEventListener);
+                client.getSensorManager().unregisterRRIntervalEventListener(mRRIntervalEventListener);
+                client.getSensorManager().unregisterContactEventListener(mContactEventListener);
             } catch (BandIOException e) {
                 appendToUI(e.getMessage());
             }
@@ -110,8 +143,11 @@ public class MainActivity extends Activity {
                     appendToUI("Band is connected.\n");
                     client.getSensorManager().registerAccelerometerEventListener(mAccelerometerEventListener, SampleRate.MS128);
                     client.getSensorManager().registerGyroscopeEventListener(mGyroscopeEventListener, SampleRate.MS128);
+                    client.getSensorManager().registerSkinTemperatureEventListener(mSkinTemperatureEventListener);
+                    client.getSensorManager().registerContactEventListener(mContactEventListener);
                     if (client.getSensorManager().getCurrentHeartRateConsent() == UserConsent.GRANTED) {
                         client.getSensorManager().registerHeartRateEventListener(mHeartRateEventListener);
+                        client.getSensorManager().registerRRIntervalEventListener(mRRIntervalEventListener);
                     } else {
                         appendToUI("You have not given this application consent to access heart rate data yet."
                                 + " Please press the Start button and press YES.\n");
