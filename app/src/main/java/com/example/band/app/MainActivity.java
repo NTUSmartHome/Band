@@ -26,6 +26,11 @@ public class MainActivity extends Activity {
     private Button btnStart;
     private TextView txtStatus;
 
+    private float yaw, roll, pitch;
+    private float aX, aY, aZ, gX, gY, gZ;
+    final private float deg_to_rad = (float) Math.PI/180;
+    final private float rad_to_deg = 180/(float) Math.PI;
+
     private String gyroscope_string;
     private String skinTemp_string;
     private String heart_string;
@@ -36,8 +41,13 @@ public class MainActivity extends Activity {
         @Override
         public void onBandAccelerometerChanged(final BandAccelerometerEvent event) {
             if (event != null) {
-                appendToUI(String.format("AX = %.3f\nAY = %.3f\nAZ = %.3f\n", event.getAccelerationX()*10,
-                        event.getAccelerationY()*10, event.getAccelerationZ()*10) + gyroscope_string + skinTemp_string + heart_string + rrInterval_string + contact_string);
+                aX = event.getAccelerationX();
+                aY = event.getAccelerationY();
+                aZ = event.getAccelerationZ();
+                Quaternions(aX, aY, aZ, gX*deg_to_rad, gY*deg_to_rad, gZ*deg_to_rad);
+                appendToUI(String.format("AX = %.3f\nAY = %.3f\nAZ = %.3f\n", aX*10,aY*10, aZ*10)
+                        + gyroscope_string + String.format("Y = %.3f\nR = %.3f\nP = %.3f\n", yaw, roll, pitch)
+                        + skinTemp_string + heart_string + rrInterval_string + contact_string);
             }
         }
     };
@@ -46,8 +56,11 @@ public class MainActivity extends Activity {
         @Override
         public void onBandGyroscopeChanged(final BandGyroscopeEvent event) {
             if (event != null) {
-                gyroscope_string = String.format("GX = %.3f\nGY = %.3f\nGZ = %.3f\n", event.getAngularVelocityX(),
-                        event.getAngularVelocityY(), event.getAngularVelocityZ());
+                gX = event.getAngularVelocityX();
+                gY = event.getAngularVelocityY();
+                gZ = event.getAngularVelocityZ();
+                gyroscope_string = String.format("GX = %.3f\nGY = %.3f\nGZ = %.3f\n", gX,
+                        gY, gZ);
             }
         }
     };
@@ -252,5 +265,61 @@ public class MainActivity extends Activity {
 
         appendToUI("Band is connecting...\n");
         return ConnectionState.CONNECTED == client.connect().await();
+    }
+
+    private void Quaternions(float ax, float ay, float az, float gx, float gy, float gz) {
+        final float Kp = 2.0f;                        // proportional gain governs rate of convergence to accelerometer/magnetometer
+        final float Ki = 0.005f;                          // integral gain governs rate of convergence of gyroscope biases
+        final float halfT = 0.5f;                   // half the sample period
+
+        float q0 = 1, q1 = 0, q2 = 0, q3 = 0;    // quaternion elements representing the estimated orientation
+        float exInt = 0, eyInt = 0, ezInt = 0;    // scaled integral error
+
+        float norm;
+        float vx, vy, vz;
+        float ex, ey, ez;
+
+        if(ax*ay*az != 0) {
+            norm = (float) Math.sqrt(ax*ax + ay*ay + az*az);
+            ax = ax /norm;
+            ay = ay / norm;
+            az = az / norm;
+
+            // estimated direction of gravity and flux (v and w)
+            vx = 2*(q1*q3 - q0*q2);
+            vy = 2*(q0*q1 + q2*q3);
+            vz = q0*q0 - q1*q1 - q2*q2 + q3*q3 ;
+
+            // error is sum of cross product between reference direction of fields and direction measured by sensors
+            ex = (ay*vz - az*vy) ;
+            ey = (az*vx - ax*vz) ;
+            ez = (ax*vy - ay*vx) ;
+
+            exInt = exInt + ex * Ki;
+            eyInt = eyInt + ey * Ki;
+            ezInt = ezInt + ez * Ki;
+
+            // adjusted gyroscope measurements
+            gx = gx + Kp*ex + exInt;
+            gy = gy + Kp*ey + eyInt;
+            gz = gz + Kp*ez + ezInt;
+            // integrate quaternion rate and normalise
+            q0 = q0 + (-q1*gx - q2*gy - q3*gz)* halfT;
+            q1 = q1 + (q0*gx + q2*gz - q3*gy) * halfT;
+            q2 = q2 + (q0*gy - q1*gz + q3*gx) * halfT;
+            q3 = q3 + (q0*gz + q1*gy - q2*gx) * halfT;
+
+            // normalise quaternion
+            norm = (float) Math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3);
+            q0 = q0 / norm;
+            q1 = q1 / norm;
+            q2 = q2 / norm;
+            q3 = q3 / norm;
+
+            yaw = (float)(Math.atan2(2 * q1 * q2 + 2 * q0 * q3, (-2) * q2 * q2 + (-2) * q3 * q3 + 1) * rad_to_deg);
+            roll = (float)(Math.atan2(2 * q2 * q3 + 2 * q0 * q1, (-2) * q1 * q1 - 2 * q2 * q2 + 1) * rad_to_deg);
+            pitch = (float)(Math.asin((-2) * q1 * q3 + 2 * q0 * q2) * rad_to_deg);
+        }
+
     }
 }
