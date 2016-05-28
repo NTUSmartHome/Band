@@ -61,15 +61,19 @@ public class MainActivity extends Activity {
                 aX = event.getAccelerationX();
                 aY = event.getAccelerationY();
                 aZ = event.getAccelerationZ();
-                sensorDataStream[0] += aX + ",";
-                sensorDataStream[1] += aY + ",";
-                sensorDataStream[2] += aZ + ",";
+                sensorDataStream[0] += aX*10 + ",";
+                sensorDataStream[1] += aY*10 + ",";
+                sensorDataStream[2] += aZ*10 + ",";
                 Quaternions(aX, aY, aZ, gX*deg_to_rad, gY*deg_to_rad, gZ*deg_to_rad);
                 sensorDataStream[6] += yaw + ",";
                 sensorDataStream[7] += roll + ",";
                 sensorDataStream[8] += pitch + ",";
-                appendToUI(String.format("Ax = %.3f\nAy = %.3f\nAz = %.3f\n", aX*10,aY*10, aZ*10)
-                        + gyroscope_string + String.format("Y = %.3f\nR = %.3f\nP = %.3f\n", yaw, roll, pitch)
+                if(heart_string == null) {
+                    heart_string = "\n\nYou have to click the 'START' again and press YES to get heart rate.";
+                    rrInterval_string = "\n";
+                }
+                appendToUI(String.format("Ax = %.3f    Ay = %.3f    Az = %.3f", aX*10,aY*10, aZ*10)
+                        + gyroscope_string + String.format("\nY = %.3f    R = %.3f    P = %.3f", yaw, roll, pitch)
                         + skinTemp_string + heart_string + rrInterval_string + contact_string);
 
                 if(System.currentTimeMillis() - previousTime > DURATION_SEND){
@@ -122,7 +126,7 @@ public class MainActivity extends Activity {
                 sensorDataStream[3] += gX + ",";
                 sensorDataStream[4] += gY + ",";
                 sensorDataStream[5] += gZ + ",";
-                gyroscope_string = String.format("Gx = %.3f\nGy = %.3f\nGz = %.3f\n", gX,
+                gyroscope_string = String.format("\nGx = %.3f    Gy = %.3f    Gz = %.3f", gX,
                         gY, gZ);
             }
         }
@@ -133,7 +137,7 @@ public class MainActivity extends Activity {
         public void onBandSkinTemperatureChanged(final BandSkinTemperatureEvent event) {
             if (event != null) {
                 skinTemp = event.getTemperature();
-                skinTemp_string = String.format("SkinTemperature = %.2f degrees Celsius\n", skinTemp);
+                skinTemp_string = String.format("\nSkinTemperature = %.2f degrees Celsius", skinTemp);
             }
         }
     };
@@ -144,8 +148,8 @@ public class MainActivity extends Activity {
             if (event != null) {
                 sensorDataStream[10] += event.getHeartRate() + ",";
                 sensorDataStream[11] += event.getQuality() + ",";
-                heart_string = String.format("HeartRate = %d beats per minute\n"
-                        + "Quality = %s\n", event.getHeartRate(), event.getQuality());
+                heart_string = String.format("\nHeartRate = %d beats per minute"
+                        + "\nQuality = %s", event.getHeartRate(), event.getQuality());
             }
         }
     };
@@ -155,7 +159,7 @@ public class MainActivity extends Activity {
         public void onBandRRIntervalChanged(final BandRRIntervalEvent event) {
             if (event != null) {
                 sensorDataStream[12] += event.getInterval() + ",";
-                rrInterval_string = String.format("RRinterval = %.3f s\n", event.getInterval());
+                rrInterval_string = String.format("\nRRinterval = %.3f s", event.getInterval());
             }
         }
     };
@@ -165,7 +169,16 @@ public class MainActivity extends Activity {
         public void onBandContactChanged(final BandContactEvent event) {
             if (event != null) {
                 conT = event.getContactState();
-                contact_string = String.format("Contact = %s\n", conT);
+                contact_string = String.format("\nContact = %s", conT);
+            }
+        }
+    };
+
+    private HeartRateConsentListener heartRateConsentListener = new HeartRateConsentListener() {
+        @Override
+        public void userAccepted(boolean consentGiven) {
+            if (consentGiven == true) {
+                Log.d("connecting", "UserConsent is GRANTED");
             }
         }
     };
@@ -194,7 +207,7 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 //        previousTime =  System.currentTimeMillis();
 
-        final WeakReference<Activity> reference = new WeakReference<Activity>(this);
+//        final WeakReference<Activity> reference = new WeakReference<Activity>(this);
 
         txtStatus = (TextView) findViewById(R.id.txtStatus);
         btnStart = (Button) findViewById(R.id.btnStart);
@@ -202,7 +215,7 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 txtStatus.setText("");
-                new HeartRateConsentTask().execute(reference);
+//                new HeartRateConsentTask().execute(reference);
                 new AccelerometerSubscriptionTask().execute();
                 //new HeartRateSubscriptionTask().execute();
             }
@@ -247,6 +260,7 @@ public class MainActivity extends Activity {
                         client.getSensorManager().registerHeartRateEventListener(mHeartRateEventListener);
                         client.getSensorManager().registerRRIntervalEventListener(mRRIntervalEventListener);
                     } else {
+                        client.getSensorManager().requestHeartRateConsent(MainActivity.this, heartRateConsentListener);
                         appendToUI("You have not given this application consent to access heart rate data yet."
                                 + " Please press the Start button and press YES.\n");
                     }
@@ -275,43 +289,43 @@ public class MainActivity extends Activity {
         }
     }
 
-    private class HeartRateConsentTask extends AsyncTask<WeakReference<Activity>, Void, Void> {
-        @Override
-        protected Void doInBackground(WeakReference<Activity>... params) {
-            try {
-                if (getConnectedBandClient()) {
-
-                    if (params[0].get() != null) {
-                        client.getSensorManager().requestHeartRateConsent(params[0].get(), new HeartRateConsentListener() {
-                            @Override
-                            public void userAccepted(boolean consentGiven) {
-                            }
-                        });
-                    }
-                } else {
-                    appendToUI("Band isn't connected. Please make sure bluetooth is on and the band is in range.\n");
-                }
-            } catch (BandException e) {
-                String exceptionMessage="";
-                switch (e.getErrorType()) {
-                    case UNSUPPORTED_SDK_VERSION_ERROR:
-                        exceptionMessage = "Microsoft Health BandService doesn't support your SDK Version. Please update to latest SDK.\n";
-                        break;
-                    case SERVICE_ERROR:
-                        exceptionMessage = "Microsoft Health BandService is not available. Please make sure Microsoft Health is installed and that you have the correct permissions.\n";
-                        break;
-                    default:
-                        exceptionMessage = "Unknown error occured: " + e.getMessage() + "\n";
-                        break;
-                }
-                appendToUI(exceptionMessage);
-
-            } catch (Exception e) {
-                appendToUI(e.getMessage());
-            }
-            return null;
-        }
-    }
+//    private class HeartRateConsentTask extends AsyncTask<WeakReference<Activity>, Void, Void> {
+//        @Override
+//        protected Void doInBackground(WeakReference<Activity>... params) {
+//            try {
+//                if (getConnectedBandClient()) {
+//                    //check params has been recycled or not
+//                    if (params[0].get() != null) {
+//                        client.getSensorManager().requestHeartRateConsent(params[0].get(), new HeartRateConsentListener() {
+//                            @Override
+//                            public void userAccepted(boolean consentGiven) {
+//                            }
+//                        });
+//                    }
+//                } else {
+//                    appendToUI("Band isn't connected. Please make sure bluetooth is on and the band is in range.\n");
+//                }
+//            } catch (BandException e) {
+//                String exceptionMessage="";
+//                switch (e.getErrorType()) {
+//                    case UNSUPPORTED_SDK_VERSION_ERROR:
+//                        exceptionMessage = "Microsoft Health BandService doesn't support your SDK Version. Please update to latest SDK.\n";
+//                        break;
+//                    case SERVICE_ERROR:
+//                        exceptionMessage = "Microsoft Health BandService is not available. Please make sure Microsoft Health is installed and that you have the correct permissions.\n";
+//                        break;
+//                    default:
+//                        exceptionMessage = "Unknown error occured: " + e.getMessage() + "\n";
+//                        break;
+//                }
+//                appendToUI(exceptionMessage);
+//
+//            } catch (Exception e) {
+//                appendToUI(e.getMessage());
+//            }
+//            return null;
+//        }
+//    }
 
     @Override
     protected void onDestroy() {
