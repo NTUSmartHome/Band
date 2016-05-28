@@ -12,6 +12,7 @@ import com.microsoft.band.UserConsent;
 import com.microsoft.band.sensors.*;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.app.Activity;
 import android.os.AsyncTask;
@@ -19,6 +20,10 @@ import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
+
+import java.io.BufferedOutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 
 public class MainActivity extends Activity {
 
@@ -28,6 +33,8 @@ public class MainActivity extends Activity {
 
     private float yaw, roll, pitch;
     private float aX, aY, aZ, gX, gY, gZ;
+    private float skinTemp;
+    private BandContactState conT;
     final private float deg_to_rad = (float) Math.PI/180;
     final private float rad_to_deg = 180/(float) Math.PI;
 
@@ -36,6 +43,16 @@ public class MainActivity extends Activity {
     private String heart_string;
     private String rrInterval_string;
     private String contact_string;
+    private String[] sensorDataStream;
+//    private String send_data_string;
+    private String send_socket_string = "";
+
+    static private int send_cnt = 0;
+    private final double DURATION_SEND = 1000;
+    private long previousTime;
+
+    private String address = "140.112.90.184";// 連線的ip
+    private int port = 54321;// 連線的port
 
     private BandAccelerometerEventListener mAccelerometerEventListener = new BandAccelerometerEventListener() {
         @Override
@@ -44,10 +61,53 @@ public class MainActivity extends Activity {
                 aX = event.getAccelerationX();
                 aY = event.getAccelerationY();
                 aZ = event.getAccelerationZ();
+                sensorDataStream[0] += aX + ",";
+                sensorDataStream[1] += aY + ",";
+                sensorDataStream[2] += aZ + ",";
                 Quaternions(aX, aY, aZ, gX*deg_to_rad, gY*deg_to_rad, gZ*deg_to_rad);
-                appendToUI(String.format("AX = %.3f\nAY = %.3f\nAZ = %.3f\n", aX*10,aY*10, aZ*10)
+                sensorDataStream[6] += yaw + ",";
+                sensorDataStream[7] += roll + ",";
+                sensorDataStream[8] += pitch + ",";
+                appendToUI(String.format("Ax = %.3f\nAy = %.3f\nAz = %.3f\n", aX*10,aY*10, aZ*10)
                         + gyroscope_string + String.format("Y = %.3f\nR = %.3f\nP = %.3f\n", yaw, roll, pitch)
                         + skinTemp_string + heart_string + rrInterval_string + contact_string);
+
+                if(System.currentTimeMillis() - previousTime > DURATION_SEND){
+                    previousTime = System.currentTimeMillis();
+
+                    sensorDataStream[9] += skinTemp + ",";
+                    sensorDataStream[13] += conT + ",";
+
+                    for(int i = 0; i < sensorDataStream.length; i++) {
+                        send_socket_string += sensorDataStream[i].substring(0, sensorDataStream[i].length() - 1) + ";";
+                    }
+                    socketClient(send_socket_string);
+
+                    sensorDataStream[0] = "Ax:";
+                    sensorDataStream[1] = "\r\nAy:";
+                    sensorDataStream[2] = "\r\nAz:";
+                    sensorDataStream[3] = "\r\nGx:";
+                    sensorDataStream[4] = "\r\nGy:";
+                    sensorDataStream[5] = "\r\nGz:";
+                    sensorDataStream[6] = "\r\nY:";
+                    sensorDataStream[7] = "\r\nR:";
+                    sensorDataStream[8] = "\r\nP:";
+                    sensorDataStream[9] = "\r\nST:";
+                    sensorDataStream[10] = "\r\nHR:";
+                    sensorDataStream[11] = "\r\nHRQ:";
+                    sensorDataStream[12] = "\r\nRRi:";
+                    sensorDataStream[13] = "\r\nCnt:";
+                    send_socket_string = "";
+                }
+//                appendToUI(send_data_string);
+
+//                send_socket_string += send_data_string;
+//                send_cnt += 1;
+//                if(send_cnt >= 13){
+//                    socketClient(send_socket_string);
+//                    send_socket_string = "";
+//                    send_cnt = 0;
+//                }
             }
         }
     };
@@ -59,7 +119,10 @@ public class MainActivity extends Activity {
                 gX = event.getAngularVelocityX();
                 gY = event.getAngularVelocityY();
                 gZ = event.getAngularVelocityZ();
-                gyroscope_string = String.format("GX = %.3f\nGY = %.3f\nGZ = %.3f\n", gX,
+                sensorDataStream[3] += gX + ",";
+                sensorDataStream[4] += gY + ",";
+                sensorDataStream[5] += gZ + ",";
+                gyroscope_string = String.format("Gx = %.3f\nGy = %.3f\nGz = %.3f\n", gX,
                         gY, gZ);
             }
         }
@@ -69,7 +132,8 @@ public class MainActivity extends Activity {
         @Override
         public void onBandSkinTemperatureChanged(final BandSkinTemperatureEvent event) {
             if (event != null) {
-                skinTemp_string = String.format("SkinTemperature = %.2f degrees Celsius\n", event.getTemperature());
+                skinTemp = event.getTemperature();
+                skinTemp_string = String.format("SkinTemperature = %.2f degrees Celsius\n", skinTemp);
             }
         }
     };
@@ -78,6 +142,8 @@ public class MainActivity extends Activity {
         @Override
         public void onBandHeartRateChanged(final BandHeartRateEvent event) {
             if (event != null) {
+                sensorDataStream[10] += event.getHeartRate() + ",";
+                sensorDataStream[11] += event.getQuality() + ",";
                 heart_string = String.format("HeartRate = %d beats per minute\n"
                         + "Quality = %s\n", event.getHeartRate(), event.getQuality());
             }
@@ -88,6 +154,7 @@ public class MainActivity extends Activity {
         @Override
         public void onBandRRIntervalChanged(final BandRRIntervalEvent event) {
             if (event != null) {
+                sensorDataStream[12] += event.getInterval() + ",";
                 rrInterval_string = String.format("RRinterval = %.3f s\n", event.getInterval());
             }
         }
@@ -97,7 +164,8 @@ public class MainActivity extends Activity {
         @Override
         public void onBandContactChanged(final BandContactEvent event) {
             if (event != null) {
-                contact_string = String.format("Contact = %s\n", event.getContactState());
+                conT = event.getContactState();
+                contact_string = String.format("Contact = %s\n", conT);
             }
         }
     };
@@ -107,7 +175,24 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        sensorDataStream = new String[14];
+        sensorDataStream[0] = "Ax:";
+        sensorDataStream[1] = "\r\nAy:";
+        sensorDataStream[2] = "\r\nAz:";
+        sensorDataStream[3] = "\r\nGx:";
+        sensorDataStream[4] = "\r\nGy:";
+        sensorDataStream[5] = "\r\nGz:";
+        sensorDataStream[6] = "\r\nY:";
+        sensorDataStream[7] = "\r\nR:";
+        sensorDataStream[8] = "\r\nP:";
+        sensorDataStream[9] = "\r\nST:";
+        sensorDataStream[10] = "\r\nHR:";
+        sensorDataStream[11] = "\r\nHRQ:";
+        sensorDataStream[12] = "\r\nRRi:";
+        sensorDataStream[13] = "\r\nCnt:";
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+//        previousTime =  System.currentTimeMillis();
 
         final WeakReference<Activity> reference = new WeakReference<Activity>(this);
 
@@ -154,8 +239,8 @@ public class MainActivity extends Activity {
             try {
                 if (getConnectedBandClient()) {
                     appendToUI("Band is connected.\n");
-                    client.getSensorManager().registerAccelerometerEventListener(mAccelerometerEventListener, SampleRate.MS128);
-                    client.getSensorManager().registerGyroscopeEventListener(mGyroscopeEventListener, SampleRate.MS128);
+                    client.getSensorManager().registerAccelerometerEventListener(mAccelerometerEventListener, SampleRate.MS32);
+                    client.getSensorManager().registerGyroscopeEventListener(mGyroscopeEventListener, SampleRate.MS32);
                     client.getSensorManager().registerSkinTemperatureEventListener(mSkinTemperatureEventListener);
                     client.getSensorManager().registerContactEventListener(mContactEventListener);
                     if (client.getSensorManager().getCurrentHeartRateConsent() == UserConsent.GRANTED) {
@@ -320,6 +405,33 @@ public class MainActivity extends Activity {
             roll = (float)(Math.atan2(2 * q2 * q3 + 2 * q0 * q1, (-2) * q1 * q1 - 2 * q2 * q2 + 1) * rad_to_deg);
             pitch = (float)(Math.asin((-2) * q1 * q3 + 2 * q0 * q2) * rad_to_deg);
         }
-
     }
+
+    public void socketClient(final String data){
+        new Thread(new Runnable(){
+            @Override
+            public void run() {
+                Socket client = new Socket();
+                InetSocketAddress isa = new InetSocketAddress(address, port);
+                try {
+                    client.connect(isa, 10000);
+                    BufferedOutputStream out = new BufferedOutputStream(client
+                            .getOutputStream());
+                    // 送出字串
+                    //out.write((currentLabel + "\r\n").getBytes());
+                    out.write(data.getBytes());
+                    out.flush();
+                    out.close();
+                    out = null;
+                    client.close();
+                    client = null;
+
+                } catch (java.io.IOException e) {
+                    Log.d("Socket","Socket連線有問題 !");
+                    Log.d("Socket","IOException :" + e.toString());
+                }
+            }
+        }).start();
+    }
+
 }
