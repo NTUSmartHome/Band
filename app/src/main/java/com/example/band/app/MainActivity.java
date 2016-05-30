@@ -2,6 +2,8 @@ package com.example.band.app;
 
 import java.lang.ref.WeakReference;
 
+import android.widget.EditText;
+import android.widget.Toast;
 import com.microsoft.band.BandClient;
 import com.microsoft.band.BandClientManager;
 import com.microsoft.band.BandException;
@@ -25,11 +27,15 @@ import java.io.BufferedOutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements LabelListFragment.OnSetCurrentLabelListener {
 
     private BandClient client = null;
     private Button btnStart;
     private TextView txtStatus;
+    private EditText mEditTextIP;
+    private EditText mEditTextPort;
+    private Button mButtonChangeIPnPort;
+    private Button mButtonStopTransmission;
 
     private float yaw, roll, pitch;
     private float aX, aY, aZ, gX, gY, gZ;
@@ -47,7 +53,8 @@ public class MainActivity extends Activity {
 //    private String send_data_string;
     private String send_socket_string = "";
 
-    static private int send_cnt = 0;
+//    static private int send_cnt = 0;
+    private String currentLabel = "";
     private final double DURATION_SEND = 1000;
     private long previousTime;
 
@@ -209,8 +216,12 @@ public class MainActivity extends Activity {
 
 //        final WeakReference<Activity> reference = new WeakReference<Activity>(this);
 
-        txtStatus = (TextView) findViewById(R.id.txtStatus);
-        btnStart = (Button) findViewById(R.id.btnStart);
+        findViews();
+        setListener();
+
+        LabelListFragment labelListFragment = new LabelListFragment();
+        getFragmentManager().beginTransaction().replace(R.id.label_list_activity_main, labelListFragment).commit();
+
         btnStart.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -218,9 +229,62 @@ public class MainActivity extends Activity {
 //                new HeartRateConsentTask().execute(reference);
                 new AccelerometerSubscriptionTask().execute();
                 //new HeartRateSubscriptionTask().execute();
+                Toast.makeText(MainActivity.this, "Start", Toast.LENGTH_SHORT).show();
             }
         });
 
+    }
+
+    private void setListener() {
+        View.OnClickListener changeIPnPort = new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+//                address = mEditTextIP.getText().toString();
+//                port = Integer.valueOf(mEditTextPort.getText().toString());
+                if(mEditTextIP.getText().toString().matches("")) {
+                    Toast.makeText(MainActivity.this, "Please input the IP", Toast.LENGTH_SHORT).show();
+                } else if(mEditTextPort.getText().toString().matches("")) {
+                    Toast.makeText(MainActivity.this, "Please input the Port", Toast.LENGTH_SHORT).show();
+                } else {
+                    address = mEditTextIP.getText().toString();
+                    port = Integer.valueOf(mEditTextPort.getText().toString());
+                    Toast.makeText(MainActivity.this, "Change IP Successfully", Toast.LENGTH_SHORT).show();
+                }
+
+//                Toast.makeText(MainActivity.this, "Change IP Successfully", Toast.LENGTH_SHORT);
+
+            }
+        };
+        mButtonChangeIPnPort.setOnClickListener(changeIPnPort);
+
+        View.OnClickListener stopTransmissionListener = new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+                if (client != null) {
+                    try {
+                        client.getSensorManager().unregisterAccelerometerEventListener(mAccelerometerEventListener);
+                        client.getSensorManager().unregisterGyroscopeEventListener(mGyroscopeEventListener);
+                        client.getSensorManager().unregisterSkinTemperatureEventListener(mSkinTemperatureEventListener);
+                        client.getSensorManager().unregisterHeartRateEventListener(mHeartRateEventListener);
+                        client.getSensorManager().unregisterRRIntervalEventListener(mRRIntervalEventListener);
+                        client.getSensorManager().unregisterContactEventListener(mContactEventListener);
+                        Toast.makeText(MainActivity.this, "Stop", Toast.LENGTH_SHORT).show();
+                    } catch (BandIOException e) {
+                        appendToUI(e.getMessage());
+                    }
+                }
+            }
+        };
+        mButtonStopTransmission.setOnClickListener(stopTransmissionListener);
+    }
+
+    public void findViews(){
+        txtStatus = (TextView) findViewById(R.id.txtStatus);
+        btnStart = (Button) findViewById(R.id.btnStart);
+        mEditTextIP = (EditText) findViewById(R.id.ip_activity_main);
+        mEditTextPort = (EditText) findViewById(R.id.port_activity_main);
+        mButtonChangeIPnPort = (Button) findViewById(R.id.change_socket_activity_main);
+        mButtonStopTransmission = (Button) findViewById(R.id.stop_transmission_activity_main);
     }
 
     @Override
@@ -432,7 +496,7 @@ public class MainActivity extends Activity {
                     BufferedOutputStream out = new BufferedOutputStream(client
                             .getOutputStream());
                     // 送出字串
-                    //out.write((currentLabel + "\r\n").getBytes());
+                    out.write((currentLabel + "\r\n").getBytes());
                     out.write(data.getBytes());
                     out.flush();
                     out.close();
@@ -446,6 +510,11 @@ public class MainActivity extends Activity {
                 }
             }
         }).start();
+    }
+
+    @Override
+    public void onSetCurrentLabel(String currentLabel) {
+        this.currentLabel = currentLabel;
     }
 
 }

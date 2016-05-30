@@ -11,4 +11,21 @@
         4. Data from the accelerometer sensor should be displayed.</string>
     <string name="start">Start</string>
 
+    <string name="ip_activity_main">IP</string>
+    <string name="port_activity_main">PORT</string>
+    <string name="change_socket_activity_main">Change IP and port</string>
+    <string name="stop_transmission_activity_main">Stop transmission</string>
+    <string name="start_transmission_activity_main">Start transmission</string>
+
+    <string name="sleep_activity_main">Sleep</string>
+    <string name="watch_tv_activity_main">Watch TV</string>
+    <string name="read_activity_main">Read</string>
+    <string name="sweep_activity_main">Sweep</string>
+    <string name="wash_dishes_activity_main">Wash dishes</string>
+    <string name="circuit_activity_main">Circuit</string>
+    <string name="walk_activity_main">Walk</string>
+    <string name="meal_activity_main">Meal</string>
+    <string name="play_pad_activity_main">Play pad</string>
+    <string name="other_activity_main">Other</string>
+
 </resources>
