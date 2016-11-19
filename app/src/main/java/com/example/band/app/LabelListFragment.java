@@ -12,8 +12,17 @@ import android.widget.Toast;
 
 
 public class LabelListFragment extends ListFragment {
-    String[] labelList = {"Label:Other", "Sleep", "WatchTV", "Read", "Sweep", "WashDishes",
-            "Exercise", "Walk", "Meal", "PlayPad", "WearShoes", "WashDishes", "Other", "Reset", "Set"};
+    //original
+//    String[] labelList = {"Label:Other", "Sleep", "WatchTV", "Read", "Sweep", "WashDishes",
+//            "Exercise", "Walk", "Meal", "PlayPad", "WearShoes", "PlayComputer", "Other", "Reset", "Set"};
+
+    //III   bedroom experiments
+    String[] labelList = {"Label:Other", "PlayComputer", "PlayPad", "Read", "Fall", "Sweep", "BendOver", "SquatDown", "StandUp",
+            "GetOnBed", "Sleep", "TurnOver", "GetOutOfBed", "Other", "Reset", "Set"};
+
+    //badminton
+//    String[] labelList = {"Label:Other", "one", "two", "three", "four", "WashDishes",
+//            "Exercise", "Walk", "Meal", "PlayPad", "WearShoes", "WashDishes", "Other", "Reset", "Set"};
     OnSetCurrentLabelListener mSetCurrentLabelCallback;
     private boolean setFlag = false;
     private ArrayAdapter<String> arrayAdapter;
@@ -44,17 +53,22 @@ public class LabelListFragment extends ListFragment {
         /*Toast.makeText(getActivity(), "Test:" + labelList[position],
                 Toast.LENGTH_SHORT).show();*/
 
+        //position is the label position (index)
         switch (position) {
             case 0:
                 Toast.makeText(getActivity(), labelList[position],
                         Toast.LENGTH_SHORT).show();
                 break;
-            case 13:
+            //original
+//            case 13:
+            case 14:
                 labelList[0] = "Label:Other";
                 mSetCurrentLabelCallback.onSetCurrentLabel(labelList[0]);
                 setFlag = false;
                 break;
-            case 14:
+            //original
+//            case 14:
+            case 15:
                 Toast.makeText(getActivity(), "Set Success",
                         Toast.LENGTH_SHORT).show();
                 mSetCurrentLabelCallback.onSetCurrentLabel(labelList[0]);
@@ -65,8 +79,11 @@ public class LabelListFragment extends ListFragment {
                 if (!setFlag) {
                     setFlag = true;
                     labelList[0] = "Label:" + labelList[position];
-                } else
-                    labelList[0] += " " + labelList[position];
+                } else {
+                    //if there are over than two activities done at the same time, and need more than one label.
+//                    labelList[0] += " " + labelList[position];
+                    labelList[0] = "Label:" + labelList[position];
+                }
                 arrayAdapter.notifyDataSetChanged();
                 break;
         }

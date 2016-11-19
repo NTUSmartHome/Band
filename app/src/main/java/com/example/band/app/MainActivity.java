@@ -58,7 +58,7 @@ public class MainActivity extends Activity implements LabelListFragment.OnSetCur
     private final double DURATION_SEND = 1000;
     private long previousTime;
 
-    private String address = "140.112.90.184";// 連線的ip
+    private String address = "140.112.90.186";// 連線的ip
     private int port = 54321;// 連線的port
 
     private BandAccelerometerEventListener mAccelerometerEventListener = new BandAccelerometerEventListener() {
@@ -73,14 +73,14 @@ public class MainActivity extends Activity implements LabelListFragment.OnSetCur
                 sensorDataStream[2] += aZ*10 + ",";
                 Quaternions(aX, aY, aZ, gX*deg_to_rad, gY*deg_to_rad, gZ*deg_to_rad);
                 sensorDataStream[6] += yaw + ",";
-                sensorDataStream[7] += roll + ",";
-                sensorDataStream[8] += pitch + ",";
+                sensorDataStream[7] += pitch + ",";
+                sensorDataStream[8] += roll + ",";
                 if(heart_string == null) {
                     heart_string = "\n\nYou have to click the 'START' again and press YES to get heart rate.";
                     rrInterval_string = "\n";
                 }
                 appendToUI(String.format("Ax = %.3f    Ay = %.3f    Az = %.3f", aX*10,aY*10, aZ*10)
-                        + gyroscope_string + String.format("\nY = %.3f    R = %.3f    P = %.3f", yaw, roll, pitch)
+                        + gyroscope_string + String.format("\nY = %.3f    P = %.3f    R = %.3f", yaw, pitch, roll)
                         + skinTemp_string + heart_string + rrInterval_string + contact_string);
 
                 if(System.currentTimeMillis() - previousTime > DURATION_SEND){
@@ -89,7 +89,10 @@ public class MainActivity extends Activity implements LabelListFragment.OnSetCur
                     sensorDataStream[9] += skinTemp + ",";
                     sensorDataStream[13] += conT + ",";
 
-                    for(int i = 0; i < sensorDataStream.length; i++) {
+//                    for(int i = 0; i < sensorDataStream.length; i++) {
+//                        send_socket_string += sensorDataStream[i].substring(0, sensorDataStream[i].length() - 1) + ";";
+//                    }
+                    for(int i = 0; i < sensorDataStream.length-5; i++) {
                         send_socket_string += sensorDataStream[i].substring(0, sensorDataStream[i].length() - 1) + ";";
                     }
                     socketClient(send_socket_string);
@@ -101,8 +104,8 @@ public class MainActivity extends Activity implements LabelListFragment.OnSetCur
                     sensorDataStream[4] = "\r\nGy:";
                     sensorDataStream[5] = "\r\nGz:";
                     sensorDataStream[6] = "\r\nY:";
-                    sensorDataStream[7] = "\r\nR:";
-                    sensorDataStream[8] = "\r\nP:";
+                    sensorDataStream[7] = "\r\nP:";
+                    sensorDataStream[8] = "\r\nR:";
                     sensorDataStream[9] = "\r\nST:";
                     sensorDataStream[10] = "\r\nHR:";
                     sensorDataStream[11] = "\r\nHRQ:";
